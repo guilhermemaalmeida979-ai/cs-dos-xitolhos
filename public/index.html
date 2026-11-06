@@ -70,14 +70,14 @@ function syncPlayers(){
 function animate(){
  requestAnimationFrame(animate);if(!scene)return;
  if(locked){
-  let sprint=keys.ShiftLeft||keys.ShiftRight,crouch=keys.ControlLeft||keys.ControlRight,speed=sprint?.145:.095;
+  let sprint=keys.ShiftLeft||keys.ShiftRight,crouch=keys.ControlLeft||keys.ControlRight,speed=sprint ? .145 : .095;
   let f=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw)),r=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw)),v=new THREE.Vector3();
   if(keys.KeyW)v.add(f);if(keys.KeyS)v.sub(f);if(keys.KeyD)v.add(r);if(keys.KeyA)v.sub(r);
-  let moving=v.lengthSq()>0;if(moving)v.normalize().multiplyScalar(speed*(crouch?.55:1));
+  let moving=v.lengthSq()>0;if(moving)v.normalize().multiplyScalar(speed*(crouch ? .55 : 1));
   player.x=Math.max(-22,Math.min(22,player.x+v.x));player.z=Math.max(-22,Math.min(22,player.z+v.z));
   player.vy-=.009;player.y+=player.vy;if(player.y<=0){player.y=0;player.vy=0;player.onGround=true}
-  walkTime+=moving?.16:0;let bob=moving?Math.sin(walkTime)*(sprint?.045:.022):0;
-  camera.position.set(player.x,1.7-(crouch?.42:0)+player.y+bob,player.z);
+  walkTime+=moving ? .16 : 0;let bob=moving?Math.sin(walkTime)*(sprint ? .045 : .022):0;
+  camera.position.set(player.x,1.7-(crouch ? .42 : 0)+player.y+bob,player.z);
   weaponKick*=.78;weapon.position.set(0,Math.sin(walkTime)*.012,-weaponKick);weapon.rotation.x=-weaponKick*.7;
   let now=performance.now();if(now-lastSync>50){socket.emit("move",{x:player.x,z:player.z,yaw:player.yaw});lastSync=now}
  }
