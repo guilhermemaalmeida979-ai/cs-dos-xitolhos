@@ -43,7 +43,7 @@ io.on("connection",socket=>{
   }
   socket.on("create-room",({name},cb)=>{let c;do{c=code()}while(rooms.has(c));rooms.set(c,{players:new Map(),score:{ct:0,t:0}});join(c,name,cb||(()=>{}));});
   socket.on("join-room",({name,code:c},cb)=>join(String(c||"").trim().toUpperCase(),name,cb||(()=>{})));
-  socket.on("move",d=>{const room=rooms.get(socket.data.room),p=room&&room.players.get(socket.id);if(!p)return;p.x=Math.max(-21,Math.min(21,Number(d.x)||0));p.z=Math.max(-21,Math.min(21,Number(d.z)||0));p.yaw=Number(d.yaw)||0;socket.to(socket.data.room).emit("player-moved",{id:p.id,x:p.x,z:p.z,yaw:p.yaw});});
+  socket.on("move",d=>{const room=rooms.get(socket.data.room),p=room&&room.players.get(socket.id);if(!p)return;p.x=Math.max(-30,Math.min(30,Number(d.x)||0));p.z=Math.max(-20,Math.min(20,Number(d.z)||0));p.yaw=Number(d.yaw)||0;socket.to(socket.data.room).emit("player-moved",{id:p.id,x:p.x,z:p.z,yaw:p.yaw});});
   socket.on("fire",({targetId})=>{const room=rooms.get(socket.data.room),a=room&&room.players.get(socket.id),b=room&&room.players.get(targetId);if(!a||!b||a.team===b.team)return;b.hp=Math.max(0,b.hp-34);io.to(socket.data.room).emit("hit-update",{id:b.id,hp:b.hp});if(!b.hp){room.score[a.team]++;io.to(socket.data.room).emit("elimination",{killer:a.name,victim:b.name,score:room.score});b.hp=100;b.x=b.team==="ct"?-7:7;b.z=b.team==="ct"?8:-8;}broadcast(socket.data.room);});
   socket.on("chat",m=>{const room=rooms.get(socket.data.room),p=room&&room.players.get(socket.id);if(p)io.to(socket.data.room).emit("chat",{name:p.name,message:String(m||"").slice(0,140)});});
   socket.on("disconnect",leave);
