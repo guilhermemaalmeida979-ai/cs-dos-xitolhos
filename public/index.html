@@ -22,7 +22,7 @@ socket.on("notice",toast);
 socket.on("chat",m=>{let d=document.createElement("div");d.textContent=m.name+": "+m.message;$("messages").append(d);while($("messages").children.length>5)$("messages").firstChild.remove()});
 $("chatinput").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.value.trim()){socket.emit("chat",e.target.value.trim());e.target.value="";e.stopPropagation()}});
 function setup(){
- scene=new THREE.Scene();scene.background=new THREE.Color(0x9eabb0);scene.fog=new THREE.Fog(0xc4c0ad,38,105);
+ scene=new THREE.Scene();scene.background=new THREE.Color(0xd7c7a6);scene.fog=new THREE.Fog(0xc4c0ad,75,180);
  camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,.08,180);
  renderer=new THREE.WebGLRenderer({canvas:$("view"),antialias:true,alpha:false});
  renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);
@@ -35,7 +35,7 @@ function setup(){
  function crate(x,y,z,w=1.8,h=1.5,d=1.8){box(x,y,z,w,h,d,0x8b6845);for(let i=-1;i<=1;i++){box(x+i*w/3,y,z-d/2-.012,.07,h,.035,0x60472f);box(x+i*w/3,y,z+d/2+.012,.07,h,.035,0x60472f)}}
  function barrel(x,z){const o=new THREE.Mesh(new THREE.CylinderGeometry(.43,.43,1.15,20),mat(0x62645d,.62,.25));o.position.set(x,.58,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);for(let y of [.25,.85]){const ring=new THREE.Mesh(new THREE.TorusGeometry(.435,.035,8,20),mat(0x303a3c,.4,.7));ring.rotation.x=Math.PI/2;ring.position.set(x,y,z);scene.add(ring)}}
  // Chão de pedra e terra, com pátio aberto
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,80),mat(0x9a896d,1));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ const groundMat=mat(0x9a896d,1);groundMat.side=THREE.DoubleSide;const ground=new THREE.Mesh(new THREE.PlaneGeometry(120,100),groundMat);ground.rotation.x=-Math.PI/2;ground.position.y=-.04;ground.receiveShadow=true;scene.add(ground);
  // Paredes exteriores: arquitetura desértica inspirada em mapas clássicos de FPS
  box(0,3,-22,64,6,1.2,0xb69b72);box(0,3,22,64,6,1.2,0xb69b72);
  box(-32,3,0,1.2,6,44,0xb69b72);box(32,3,0,1.2,6,44,0xb69b72);
@@ -66,8 +66,10 @@ function setup(){
  const paint=mat(0xd1b98e,1);for(const [x,z] of [[19,-12],[-19,12]]){let ring=new THREE.Mesh(new THREE.RingGeometry(3.3,3.42,48),paint);ring.rotation.x=-Math.PI/2;ring.position.set(x,.018,z);scene.add(ring)}
  for(const [x,z] of [[-25,-18],[25,-18],[-25,18],[25,18],[0,0]]){let lamp=new THREE.PointLight(0xffd29a,7,13,2);lamp.position.set(x,4,z);scene.add(lamp)}
  // Posição inicial e orientação para o centro
- player={x:team==="ct"?-27:27,z:team==="ct"?0:0,yaw:team==="ct"?-Math.PI/2:Math.PI/2,pitch:0,vy:0,onGround:true};
- camera.position.set(player.x,1.7,player.z);camera.rotation.set(0,player.yaw,0,"YXZ");ray=new THREE.Raycaster();
+ player={x:team==="ct"?-27:27,z:0,yaw:team==="ct"?-Math.PI/2:Math.PI/2,pitch:0,vy:0,onGround:true};
+ camera.position.set(player.x,1.7,player.z);camera.lookAt(0,1.5,0);player.yaw=team==="ct"?-Math.PI/2:Math.PI/2;camera.rotation.set(0,player.yaw,0,"YXZ");ray=new THREE.Raycaster();
+ // Marco de referência visível junto ao spawn para confirmar o carregamento da geometria
+ box(team==="ct"?-20:20,1.1,0,1.8,2.2,1.8,0xd0a36e);
  // Rifle em primeira pessoa: coronha, corpo, guarda-mão, cano, mira, carregador e mão
  weapon=new THREE.Group();const steel=mat(0x252b2d,.32,.78),black=mat(0x101416,.48,.45),poly=mat(0x343b3a,.78),wood=mat(0x51402f,.86),skin=mat(0x9a7258,.92);
  function gunPart(geo,material,x,y,z,rx=0,ry=0,rz=0){let m=new THREE.Mesh(geo,material);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);m.castShadow=true;weapon.add(m);return m}
