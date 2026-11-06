@@ -9,20 +9,79 @@
 <div id="game"><canvas id="view"></canvas><div class="hud"><div class="top"><span class="orange">XITOLHOS</span> &nbsp; <span id="score">0 — 0</span> &nbsp; SALA <span id="code">-----</span></div><div id="cross">+</div><div id="roster"></div><div id="chat"><div id="messages"></div><input id="chatinput" placeholder="Enter para conversar..."></div><div id="toast"></div><div class="info">VIDA <b id="hp">100</b><br><small id="team">EQUIPA</small></div><div class="right"><b>RIFLE</b><br><span id="ammo">30 / 90</span><br><small>WASD • RATO • CLIQUE</small></div></div></div>
 <script src="/socket.io/socket.io.js"></script><script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-const socket=io();const $=id=>document.getElementById(id);let me=null,team=null,players=new Map(),meshes=new Map(),scene,camera,renderer,player,locked=false,keys={},ammo=30,reserve=90,lastSync=0,ray;
+const socket=io();const $=id=>document.getElementById(id);let me=null,team=null,players=new Map(),meshes=new Map(),scene,camera,renderer,player,locked=false,keys={},ammo=30,reserve=90,lastSync=0,ray,weapon,weaponKick=0,walkTime=0,lastShot=0;
 function toast(s){$("toast").textContent=s;setTimeout(()=>$("toast").textContent="",1800)}
 function enter(r){me=r.id;team=r.team;$("code").textContent=r.code;$("team").textContent=team==="ct"?"CONTRA-TERRORISTAS":"TERRORISTAS";$("lobby").style.display="none";$("game").style.display="block";setup();renderer.domElement.requestPointerLock()}
 $("create").onclick=()=>socket.emit("create-room",{name:$("nickname").value},r=>r.ok?enter(r):$("status").textContent=r.error);
 $("join").onclick=()=>socket.emit("join-room",{name:$("nickname").value,code:$("roomcode").value},r=>r.ok?enter(r):$("status").textContent=r.error);
 socket.on("room-state",r=>{players=new Map(r.players.map(p=>[p.id,p]));$("score").textContent=r.score.ct+" — "+r.score.t;syncPlayers()});
-socket.on("player-moved",p=>{let old=players.get(p.id);if(old)Object.assign(old,p)});
+socket.on("player-moved",p=>{let old=players.get(p.id);if(old){Object.assign(old,p);syncPlayers()}});
 socket.on("hit-update",p=>{let old=players.get(p.id);if(old)old.hp=p.hp;if(p.id===me)$("hp").textContent=p.hp});
 socket.on("elimination",e=>toast(e.killer+" eliminou "+e.victim));
 socket.on("notice",toast);
 socket.on("chat",m=>{let d=document.createElement("div");d.textContent=m.name+": "+m.message;$("messages").append(d);while($("messages").children.length>5)$("messages").firstChild.remove()});
 $("chatinput").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.value.trim()){socket.emit("chat",e.target.value.trim());e.target.value="";e.stopPropagation()}});
-function setup(){scene=new THREE.Scene();scene.background=new THREE.Color(0x9aa9aa);scene.fog=new THREE.Fog(0x9aa9aa,30,75);camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,100);renderer=new THREE.WebGLRenderer({canvas:$("view"),antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));scene.add(new THREE.HemisphereLight(0xffffff,0x575044,2));let sun=new THREE.DirectionalLight(0xffe1b8,2);sun.position.set(-10,20,10);scene.add(sun);const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:.9});function box(x,y,z,a,b,c,col){let o=new THREE.Mesh(new THREE.BoxGeometry(a,b,c),mat(col));o.position.set(x,y,z);scene.add(o)}let floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),mat(0x77766b));floor.rotation.x=-Math.PI/2;scene.add(floor);box(0,2,-25,50,4,1,0xb2a187);box(0,2,25,50,4,1,0xb2a187);box(-25,2,0,1,4,50,0xb2a187);box(25,2,0,1,4,50,0xb2a187);box(-8,1.3,-7,7,2.6,2,0x806448);box(8,1.3,-7,7,2.6,2,0x806448);box(0,1,3,4,2,4,0x565c5b);box(-14,1,3,3,2,3,0x806448);box(14,1,-1,3,2,3,0x806448);box(-6,1,15,5,2,2,0x806448);box(8,1,15,5,2,2,0x806448);player={x:team==="ct"?-7:7,z:team==="ct"?8:-8,yaw:0,pitch:0};camera.position.set(player.x,1.7,player.z);ray=new THREE.Raycaster();document.addEventListener("pointerlockchange",()=>locked=document.pointerLockElement===renderer.domElement);document.addEventListener("mousemove",e=>{if(!locked)return;player.yaw-=e.movementX*.002;player.pitch=Math.max(-1.2,Math.min(1.2,player.pitch-e.movementY*.002));camera.rotation.set(player.pitch,player.yaw,0,"YXZ")});document.addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="KeyR"){let n=Math.min(30-ammo,reserve);ammo+=n;reserve-=n;$("ammo").textContent=ammo+" / "+reserve}});document.addEventListener("keyup",e=>keys[e.code]=false);renderer.domElement.addEventListener("mousedown",()=>{if(!locked){renderer.domElement.requestPointerLock();return}if(ammo<=0){toast("Sem munições — R para recarregar");return}ammo--;$("ammo").textContent=ammo+" / "+reserve;ray.setFromCamera(new THREE.Vector2(0,0),camera);let hits=ray.intersectObjects([...meshes.values()],true);if(hits.length){let id=hits[0].object.userData.playerId;if(id)socket.emit("fire",{targetId:id})}});animate()}
-function syncPlayers(){if(!scene)return;for(let [id,p] of players){if(id===me)continue;if(!meshes.has(id)){let g=new THREE.Group(),body=new THREE.Mesh(new THREE.CylinderGeometry(.38,.42,1.1,8),new THREE.MeshStandardMaterial({color:p.team==="ct"?0x416a86:0x95513a})),head=new THREE.Mesh(new THREE.SphereGeometry(.25,8,8),new THREE.MeshStandardMaterial({color:0xc99c78}));body.position.y=.9;head.position.y=1.62;body.userData.playerId=id;head.userData.playerId=id;g.add(body,head);scene.add(g);meshes.set(id,g)}let g=meshes.get(id);g.position.set(p.x,0,p.z);g.rotation.y=p.yaw}for(let [id,g] of meshes)if(!players.has(id)){scene.remove(g);meshes.delete(id)}$("roster").innerHTML=[...players.values()].map(p=>p.name+" ("+(p.team==="ct"?"CT":"T")+")").join("<br>")}
-function animate(){requestAnimationFrame(animate);if(!scene)return;if(locked){let f=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw)),r=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw)),v=new THREE.Vector3();if(keys.KeyW)v.add(f);if(keys.KeyS)v.sub(f);if(keys.KeyD)v.add(r);if(keys.KeyA)v.sub(r);if(v.lengthSq())v.normalize().multiplyScalar(.1);player.x=Math.max(-22,Math.min(22,player.x+v.x));player.z=Math.max(-22,Math.min(22,player.z+v.z));camera.position.set(player.x,1.7,player.z);let now=performance.now();if(now-lastSync>50){socket.emit("move",{x:player.x,z:player.z,yaw:player.yaw});lastSync=now}}renderer.render(scene,camera)}
+function setup(){
+ scene=new THREE.Scene();scene.background=new THREE.Color(0x9aa5a2);scene.fog=new THREE.FogExp2(0x9aa5a2,.012);
+ camera=new THREE.PerspectiveCamera(74,innerWidth/innerHeight,.1,120);
+ renderer=new THREE.WebGLRenderer({canvas:$("view"),antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));
+ renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;
+ scene.add(new THREE.HemisphereLight(0xc9dcf0,0x51483c,1.65));
+ const sun=new THREE.DirectionalLight(0xffdfb0,3.1);sun.position.set(-12,24,9);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-32;sun.shadow.camera.right=32;sun.shadow.camera.top=32;sun.shadow.camera.bottom=-32;scene.add(sun);
+ const mat=(c,r=.88,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+ function box(x,y,z,a,b,c,col,r=.9){let o=new THREE.Mesh(new THREE.BoxGeometry(a,b,c),mat(col,r));o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o}
+ let floor=new THREE.Mesh(new THREE.PlaneGeometry(60,60),mat(0x77766b,1));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+ box(0,2,-25,50,4,1,0xaaa18a);box(0,2,25,50,4,1,0xaaa18a);box(-25,2,0,1,4,50,0xaaa18a);box(25,2,0,1,4,50,0xaaa18a);
+ box(-8,1.3,-7,7,2.6,2,0x806448);box(8,1.3,-7,7,2.6,2,0x806448);box(0,1,3,4,2,4,0x565c5b);
+ box(-14,1,3,3,2,3,0x806448);box(14,1,-1,3,2,3,0x806448);box(-6,1,15,5,2,2,0x806448);box(8,1,15,5,2,2,0x806448);
+ box(-17,1.2,-14,5,2.4,2,0x3c5554);box(17,1.2,12,5,2.4,2,0x3c5554);
+ for(const [x,z] of [[-18,7],[18,-12],[-3,-17],[12,7]]){let o=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,1.25,16),mat(0x59605c,.65));o.position.set(x,.63,z);o.castShadow=true;o.receiveShadow=true;scene.add(o)}
+ for(const [x,z] of [[-12,-12],[12,-12],[-12,12],[12,12]]){box(x,.35,z,2.2,.7,1.5,0x795b37);for(let j=-1;j<=1;j++)box(x+j*.65,.72,z,.09,.08,1.5,0x443a2c)}
+ for(const [x,z] of [[-18,-20],[18,-20],[-18,20],[18,20]]){let l=new THREE.PointLight(0xffd39a,16,15,2);l.position.set(x,3.6,z);scene.add(l);box(x,3.9,z,.45,.12,.45,0xe2c79a)}
+ player={x:team==="ct"?-7:7,z:team==="ct"?8:-8,yaw:0,pitch:0,vy:0,onGround:true};camera.position.set(player.x,1.7,player.z);ray=new THREE.Raycaster();
+ weapon=new THREE.Group();const gm=mat(0x252b2d,.38,.72),dm=mat(0x101416,.55,.35),wm=mat(0x514236,.8);
+ let rec=new THREE.Mesh(new THREE.BoxGeometry(.18,.16,.62),gm);rec.position.set(.34,-.24,-.58);weapon.add(rec);
+ let bar=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.48,12),dm);bar.rotation.x=Math.PI/2;bar.position.set(.34,-.2,-1.04);weapon.add(bar);
+ let stock=new THREE.Mesh(new THREE.BoxGeometry(.15,.13,.34),wm);stock.position.set(.34,-.25,-.15);weapon.add(stock);
+ let mag=new THREE.Mesh(new THREE.BoxGeometry(.11,.24,.16),dm);mag.position.set(.34,-.42,-.58);weapon.add(mag);
+ let sight=new THREE.Mesh(new THREE.BoxGeometry(.07,.07,.12),dm);sight.position.set(.34,-.13,-.63);weapon.add(sight);camera.add(weapon);scene.add(camera);
+ document.addEventListener("pointerlockchange",()=>locked=document.pointerLockElement===renderer.domElement);
+ document.addEventListener("mousemove",e=>{if(!locked)return;player.yaw-=e.movementX*.0018;player.pitch=Math.max(-1.15,Math.min(1.15,player.pitch-e.movementY*.0018));camera.rotation.set(player.pitch,player.yaw,0,"YXZ")});
+ document.addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="KeyR"){let n=Math.min(30-ammo,reserve);ammo+=n;reserve-=n;$("ammo").textContent=ammo+" / "+reserve}if(e.code==="Space"&&player.onGround){player.vy=.19;player.onGround=false}});
+ document.addEventListener("keyup",e=>keys[e.code]=false);
+ renderer.domElement.addEventListener("mousedown",()=>{if(!locked){renderer.domElement.requestPointerLock();return}if(ammo<=0){toast("Sem munições — R para recarregar");return}let now=performance.now();if(now-lastShot<115)return;lastShot=now;ammo--;$("ammo").textContent=ammo+" / "+reserve;weaponKick=Math.min(weaponKick+.09,.24);ray.setFromCamera(new THREE.Vector2(0,0),camera);let hits=ray.intersectObjects([...meshes.values()],true);if(hits.length){let id=hits[0].object.userData.playerId;if(id)socket.emit("fire",{targetId:id})}});
+ animate()
+}
+function syncPlayers(){
+ if(!scene)return;
+ for(let [id,p] of players){if(id===me)continue;if(!meshes.has(id)){
+  let g=new THREE.Group(),u=new THREE.MeshStandardMaterial({color:p.team==="ct"?0x354f60:0x66503d,roughness:.95}),skin=new THREE.MeshStandardMaterial({color:0xb88768}),gear=new THREE.MeshStandardMaterial({color:0x202629,roughness:.75});
+  let torso=new THREE.Mesh(new THREE.BoxGeometry(.62,.78,.34),u);torso.position.y=1.12;torso.castShadow=true;g.add(torso);
+  let vest=new THREE.Mesh(new THREE.BoxGeometry(.66,.48,.37),gear);vest.position.set(0,1.2,0);vest.castShadow=true;g.add(vest);
+  let head=new THREE.Mesh(new THREE.SphereGeometry(.22,12,10),skin);head.position.y=1.72;head.castShadow=true;g.add(head);
+  let helmet=new THREE.Mesh(new THREE.SphereGeometry(.245,12,8,0,Math.PI*2,0,Math.PI/2),gear);helmet.position.y=1.79;helmet.castShadow=true;g.add(helmet);
+  for(const side of [-1,1]){let arm=new THREE.Mesh(new THREE.BoxGeometry(.19,.62,.2),u);arm.position.set(side*.42,1.13,-.02);arm.rotation.z=side*.12;arm.castShadow=true;g.add(arm);let leg=new THREE.Mesh(new THREE.BoxGeometry(.23,.68,.25),gear);leg.position.set(side*.17,.38,0);leg.castShadow=true;g.add(leg)}
+  g.traverse(o=>{if(o.isMesh)o.userData.playerId=id});scene.add(g);meshes.set(id,g)}
+  let g=meshes.get(id);g.position.set(p.x,0,p.z);g.rotation.y=p.yaw
+ }
+ for(let [id,g] of meshes)if(!players.has(id)){scene.remove(g);meshes.delete(id)}
+ $("roster").innerHTML=[...players.values()].map(p=>p.name+" ("+(p.team==="ct"?"CT":"T")+")").join("<br>")
+}
+function animate(){
+ requestAnimationFrame(animate);if(!scene)return;
+ if(locked){
+  let sprint=keys.ShiftLeft||keys.ShiftRight,crouch=keys.ControlLeft||keys.ControlRight,speed=sprint?.145:.095;
+  let f=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw)),r=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw)),v=new THREE.Vector3();
+  if(keys.KeyW)v.add(f);if(keys.KeyS)v.sub(f);if(keys.KeyD)v.add(r);if(keys.KeyA)v.sub(r);
+  let moving=v.lengthSq()>0;if(moving)v.normalize().multiplyScalar(speed*(crouch?.55:1));
+  player.x=Math.max(-22,Math.min(22,player.x+v.x));player.z=Math.max(-22,Math.min(22,player.z+v.z));
+  player.vy-=.009;player.y+=player.vy;if(player.y<=0){player.y=0;player.vy=0;player.onGround=true}
+  walkTime+=moving?.16:0;let bob=moving?Math.sin(walkTime)*(sprint?.045:.022):0;
+  camera.position.set(player.x,1.7-(crouch?.42:0)+player.y+bob,player.z);
+  weaponKick*=.78;weapon.position.set(0,Math.sin(walkTime)*.012,-weaponKick);weapon.rotation.x=-weaponKick*.7;
+  let now=performance.now();if(now-lastSync>50){socket.emit("move",{x:player.x,z:player.z,yaw:player.yaw});lastSync=now}
+ }
+ renderer.render(scene,camera)
+}
 addEventListener("resize",()=>{if(camera&&renderer){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}});
 </script></body></html>
