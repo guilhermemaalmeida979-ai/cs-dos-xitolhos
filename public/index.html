@@ -112,7 +112,7 @@ function animate(){
   let f=new THREE.Vector3(-Math.sin(player.yaw),0,-Math.cos(player.yaw)),r=new THREE.Vector3(Math.cos(player.yaw),0,-Math.sin(player.yaw)),v=new THREE.Vector3();
   if(keys.KeyW)v.add(f);if(keys.KeyS)v.sub(f);if(keys.KeyD)v.add(r);if(keys.KeyA)v.sub(r);
   let moving=v.lengthSq()>0;if(moving)v.normalize().multiplyScalar(speed*(crouch ? .55 : 1));
-  player.x=Math.max(-22,Math.min(22,player.x+v.x));player.z=Math.max(-22,Math.min(22,player.z+v.z));
+  player.x=Math.max(-30,Math.min(30,player.x+v.x));player.z=Math.max(-20,Math.min(20,player.z+v.z));
   player.vy-=.009;player.y+=player.vy;if(player.y<=0){player.y=0;player.vy=0;player.onGround=true}
   walkTime+=moving ? .16 : 0;let bob=moving?Math.sin(walkTime)*(sprint ? .045 : .022):0;
   camera.position.set(player.x,1.7-(crouch ? .42 : 0)+player.y+bob,player.z);
