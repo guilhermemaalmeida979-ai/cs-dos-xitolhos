@@ -66,8 +66,8 @@ function setup(){
  const paint=mat(0xd1b98e,1);for(const [x,z] of [[19,-12],[-19,12]]){let ring=new THREE.Mesh(new THREE.RingGeometry(3.3,3.42,48),paint);ring.rotation.x=-Math.PI/2;ring.position.set(x,.018,z);scene.add(ring)}
  for(const [x,z] of [[-25,-18],[25,-18],[-25,18],[25,18],[0,0]]){let lamp=new THREE.PointLight(0xffd29a,7,13,2);lamp.position.set(x,4,z);scene.add(lamp)}
  // Posição inicial e orientação para o centro
- player={x:team==="ct"?-27:27,z:0,yaw:team==="ct"?-Math.PI/2:Math.PI/2,pitch:0,vy:0,onGround:true};
- camera.position.set(player.x,1.7,player.z);camera.lookAt(0,1.5,0);player.yaw=team==="ct"?-Math.PI/2:Math.PI/2;camera.rotation.set(0,player.yaw,0,"YXZ");ray=new THREE.Raycaster();
+ player={x:team==="ct"?-24:24,z:0,yaw:team==="ct"?-Math.PI/2:Math.PI/2,pitch:-0.12,vy:0,onGround:true};
+ camera.position.set(player.x,1.7,player.z);camera.rotation.order="YXZ";camera.rotation.set(player.pitch,player.yaw,0,"YXZ");camera.updateProjectionMatrix();ray=new THREE.Raycaster();
  // Marco de referência visível junto ao spawn para confirmar o carregamento da geometria
  box(team==="ct"?-20:20,1.1,0,1.8,2.2,1.8,0xd0a36e);
  // Rifle em primeira pessoa: coronha, corpo, guarda-mão, cano, mira, carregador e mão
